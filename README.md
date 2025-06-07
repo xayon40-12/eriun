@@ -27,7 +27,7 @@ The name is symply the first letters of the main compenents of this language:
 
 ## Syntax highlihting
 
-There is a tree-sitter parser in this repository [tree-sitter-lambdaCube](https://github.com/xayon40-12/LambdaCube/tree/main/tree-sitter-lambdaCube) which can be used for syntax highlighting.
+There is a tree-sitter parser in this repository [tree-sitter-eriun](https://github.com/xayon40-12/eriun/tree-sitter-eriun) which can be used for syntax highlighting.
 
 ### Helix
 
@@ -60,10 +60,10 @@ Here is a setup for the [Helix editor](https://helix-editor.com/).
   - First, create a `queries/` folder if it does not already exists in your helix `runtime/` folder (most likely next to `language.toml` in `~/.config/helix/`).
   - Then, from inside the `queries/` folder, create a symbolic link to the queries which where fetched by helix:
     ```bash
-    ln -s ../grammars/sources/lambdaCube/tree-sitter-lambdaCube/queries/ lambdaCube
+    ln -s ../grammars/sources/eriun/tree-sitter-eriun/queries/ eriun
     ```
 
-**NOTE**: If the tree-sitter in this repository changes, you might need to first delete the grammar repository fetched by Helix in the `runtime` repository (`runtime/grammars/sources/lambdaCube`) and then use `helix -g fetch` and `helix -g build` again.
+**NOTE**: If the tree-sitter in this repository changes, you might need to first delete the grammar repository fetched by Helix in the `runtime` repository (`runtime/grammars/sources/eriun`) and then use `helix -g fetch` and `helix -g build` again.
 
 #### Themes
 
