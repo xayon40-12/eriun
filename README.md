@@ -27,7 +27,7 @@ The name is symply the first letters of the main compenents of this language:
 
 ## Syntax highlihting
 
-There is a tree-sitter parser in this repository [tree-sitter-eriun](https://github.com/xayon40-12/eriun/tree-sitter-eriun) which can be used for syntax highlighting.
+There is a tree-sitter parser in this repository [tree-sitter-eriun](https://github.com/xayon40-12/eriun/tree/main/tree-sitter-eriun) which can be used for syntax highlighting.
 
 ### Helix
 
