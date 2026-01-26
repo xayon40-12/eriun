@@ -28,7 +28,6 @@ data Expr i
     | InterT (Sym, Expr i) (Expr i) -- Depedent intersection type
     | Inter (Expr i) (Expr i) -- Dependent intersection term
     | As (Expr i) AsT -- Term of a dependent intersection with either the first or second type depending on the value of `Inter`
-    | Typed (Type i) (Expr i) -- Left typing: Type :> term
     | Let Sym Depth (Type i) (Expr i) (Expr i)
     | Symbol Sym -- Symbol
     deriving Eq
@@ -60,7 +59,6 @@ show' (Lam _ (er, s, t) e) d
     | otherwise = erasedStart er ++ s ++ ": " ++ show' t d ++ erasedEnd er ++ " " ++ show' e d
 show' (App f@(Lam _ (_, _, _) _) x) d = "[" ++ show' f d ++ "] " ++ showApp x d
 show' (App f x) d = show' f d ++ " " ++ showApp x d
-show' (Typed t e) d = show' t d ++ " :> " ++ show' e d
 show' (InterT (s, t1) t2) d = "(" ++ s ++ ": " ++ show' t1 d ++ " /\\ " ++ show' t2 d ++ ")"
 show' (Inter e1 e2) d = show' e1 d ++ " ^ " ++ show' e2 d
 show' (As e i) d = show' e d ++ "." ++ show i
@@ -84,7 +82,6 @@ showErrasure False = ""
 showApp :: (Erased, Expr i) -> Int -> String
 showApp (er, l@(Lam {})) d = showErrasure er ++ "[" ++ show' l d ++ "]"
 showApp (er, App f x) d = showErrasure er ++ "[" ++ show' f d ++ " " ++ showApp x d ++ "]"
-showApp (er, Typed t x) d = showErrasure er ++ "[" ++ show' t d ++ " :> " ++ showApp (False, x) d ++ "]"
 showApp (er,e) d = showErrasure er ++ show' e d
 
 showL :: Levels -> String
@@ -109,7 +106,6 @@ freeVars (App f (_, a)) = freeVars f <> freeVars a
 freeVars (InterT (s, t1) t2) = freeVars t1 <> Set.delete s (freeVars t2)
 freeVars (Inter e1 e2) = freeVars e1 <> freeVars e2
 freeVars (As e _i) = freeVars e
-freeVars (Typed t e) = freeVars t <> freeVars e
 freeVars (Let s _d t v e) = freeVars t <> freeVars v <> Set.delete s (freeVars e)
 freeVars (Symbol s) = Set.singleton s
 
@@ -122,8 +118,6 @@ nf env expr = spine expr []
         spine (InterT (s, t1) t2) [] = InterT (s, nf env t1) (nf env t2)
         spine (Inter e1 e2) [] = Inter (nf env e1) (nf env e2)
         spine (As e i) [] = As (nf env e) i
-        spine (Typed t e) [] = Typed (nf env t) (nf env e)
-        spine (Typed _t e) xs = spine (nf env e) xs -- WARNING: because of this, applying 'nf' before 'tCheck' will discard some type constraints
         spine (Let s d t v e) xs = spine (subst s (replaceBody d t (const v)) e) xs
         spine (Symbol s) xs = case findVar env s of
             Right (Def, _, _, v) -> spine v xs
@@ -135,7 +129,6 @@ whnf expr = spine expr []
     where
         spine (Lam _ (_, s, _t) e) ((_,x):xs) = spine (subst s x e) xs
         spine (App f x) xs = spine f (x:xs)
-        spine (Typed t e) [] = Typed (whnf t) (whnf e)
         spine (Let s d t v e) xs = spine (subst s (replaceBody d t (const v)) (whnf e)) xs
         spine f xs = fapp f xs
         fapp f xs = foldl App f (map (second whnf) xs)
@@ -174,7 +167,6 @@ subst s x = sub
           | otherwise = InterT (s', sub t1) (sub t2)
         sub (Inter e1 e2) = Inter (sub e1) (sub e2)
         sub (As e i) = As (sub e) i
-        sub (Typed t e) = Typed (sub t) (sub e)
         sub (Let s' d t v e')
           | s == s' = Let s' d (sub t) (sub v) e'
           | s' `elem` fsx =
@@ -204,7 +196,6 @@ alphaEq (App f (er,x)) (App f' (er',x')) = er == er' && alphaEq f f' && alphaEq 
 alphaEq (InterT (s, t1) t2) (InterT (s', t1') t2') = alphaEq t2 (substVar s' s t2') && alphaEq t1 t1'
 alphaEq (Inter e1 e2) (Inter e1' e2') = alphaEq e1 e1' && alphaEq e2 e2'
 alphaEq (As e i) (As e' i') = alphaEq e e' && i == i'
-alphaEq (Typed t e) (Typed t' e') = alphaEq e e' && alphaEq t t'
 alphaEq (Let s d t v e) e' = alphaEq (subst s (replaceBody d t (const v)) e) e'
 alphaEq e (Let s d t v e') = alphaEq e (subst s (replaceBody d t (const v)) e')
 alphaEq (Symbol s) (Symbol s') = s == s'
@@ -233,7 +224,6 @@ erased (App f (False,x)) = App (erased f) (False,erased x)
 erased (InterT (s, t1) t2) = InterT (s, erased t1) (erased t2)
 erased (Inter e1 _e2) = erased e1
 erased (As e _i) = erased e
-erased (Typed _t e) = erased e
 erased (Let s d t v e) = erased $ subst s (replaceBody d t (const v)) e
 erased (Symbol s) = Symbol s
 
@@ -259,10 +249,6 @@ findVar (Env ls) s =
     case Map.lookup s ls of
         Just j -> return j
         Nothing -> throwError $ "Cannot find variable " ++ s
-
-unTyped :: Expr i  -> Expr i
-unTyped (Typed _t e) = unTyped e
-unTyped e = e
 
 validTyping :: Show i => Env i -> Expr i -> Expr i -> Expr i -> Bool
 validTyping env vt1 vt2 ve2 = valid env (nf env vt1) (nf env vt2) (nf env ve2)
@@ -304,7 +290,6 @@ universe env (Inter e1 e2) = do
     u2 <- universe env e2
     return $ maxLevel u1 u2
 universe env (As e _i) = universe env e
-universe env (Typed _ e) = universe env e
 universe env (Let s d t v e) = universe env (subst s (replaceBody d t (const v)) e)
 universe env (Symbol s) = findVar env s >>= ((((+(-1)) <$>) <$>) . universe env) . (\(_,_,_,x) -> x)
 
@@ -334,7 +319,7 @@ tCheck env cer (Lam i (er, s, t) e) = do
             return (isT', Lam i (er, s, t) te)
 tCheck env cer (App f (er,x)) = do
     (isT, tf) <- tCheck env cer f
-    case unTyped . whnf $ tf of
+    case whnf tf of
         Lam _i (er', s, t) b -> do
             unless (er == er') $ throwError $ "In application the erasure must match and be specified manually, erasures \n" ++ show t ++ ",\n" ++ showErrasure er ++ show x ++ "\ndiffer."
             (_isT', tx) <- tCheck env (er || cer) x
@@ -362,17 +347,13 @@ tCheck env cer (As e i) = do
             One -> return (isT, t1)
             Two -> return (isT, subst s (As e One) t2)
         t -> throwError $ "The post-fix operator to access a dependent intersection must be applied to a term whose type is a dependent intersection, provided:\n" ++ show (As e i) ++ ": " ++ show t
-tCheck env cer (Typed t e) = do
-    (isT', _) <- tCheck env True t
-    (isT, te) <- tCheck env (cer || isT' == SUniverse) e
-    unless (validTyping env t te e) $ case (nf env t, nf env e) of
-        (InterT (s, t1) t2, Inter e1 _e2) -> throwError $ "Type missmatch:\n" ++ show (InterT (s, t1 ) (subst s (nf env e1) (nf env t2))) ++ ",\n" ++ show (nf env te) ++ "\n."
-        _ -> throwError $ "Type missmatch:\n" ++ show (nf env t) ++ ",\n" ++ show (nf env te) ++ "\n." --"in " ++ show (t ::> e) ++ "."
-    return (isT, t)
 tCheck env cer (Let s d t v e) = do
     let rv = replaceBody d t (const v)
     (isT', _tt) <- tCheck env True t
-    _tv <- tCheck env cer (Typed t rv)
+    (_isT, te) <- tCheck env (cer || isT' == SUniverse) rv
+    unless (validTyping env t te rv) $ case (nf env t, nf env rv) of
+        (InterT (s', t1) t2, Inter e1 _e2) -> throwError $ "Type missmatch:\n" ++ show (InterT (s', t1 ) (subst s' (nf env e1) (nf env t2))) ++ ",\n" ++ show (nf env te) ++ "\n."
+        _ -> throwError $ "Type missmatch:\n" ++ show (nf env t) ++ ",\n" ++ show (nf env te) ++ "\n." --"in " ++ show (t ::> e) ++ "."
     tCheck (extend env s Def (downgrade isT') False rv) cer e
 tCheck env cer (Symbol s) = findVar env s >>= \(isd, st, er, t) -> if cer || not er
     then case isd of
