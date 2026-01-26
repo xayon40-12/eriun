@@ -379,9 +379,12 @@ maxLevel l1 l2 = lmax l1 (toList l2)
 typeCheck :: Show i => Expr i -> TC (Expr i)
 typeCheck = (snd <$>) . tCheck initialEnv initialErased
 
+tabbed :: String -> String
+tabbed = unlines . map ("    " ++) . lines
+
 showLam :: Show i => Sym -> Expr i -> IO ()
 showLam s lam = do
-    putStrLn $ s ++ " =\n" ++ show lam
+    putStrLn $ s ++ " =\n" ++ tabbed (show lam)
     putStrLn $ s ++ " e= " ++ show (erased lam)
     case typeCheck lam of
         Right t -> do
@@ -396,52 +399,3 @@ typeCheckVar ty var = do
     let env = initialEnv
     (_isT, tv) <- tCheck env initialErased var
     return $ validTyping env ty tv var
-
--- lv :: Sym -> Int -> Levels
--- lv = singleton
-
--- ui :: Int -> Expr
--- ui i = U (singleton "" i)
--- us :: Sym -> Expr
--- us l = U (singleton l 0)
--- u :: Sym -> Int -> Expr
--- u l i = U (singleton l i)
-
--- id' :: Expr
--- id' = ("i", L) :-> ("t", us "i") :-> ("x", S "t") :-> S "t" ::> S "x"
--- higher :: Expr
--- higher = ("f", ("t", ui 1) :-> ("", S "t") :-> S "t") :-> S "f"
--- bigger :: Expr
--- bigger = ("f", ("t", ui 1) :-> ("r", ui 4) :-> S "r") :-> S "f"
--- level :: Expr
--- level = ("i", L) :-> ("T", us "i") :-> ("t", S "T") :-> S "T" ::> S "t"
--- false :: Expr
--- false = ("i", L) :-> ("T", us "i") :-> us "i" ::> S "T"
--- maxleveli :: Expr
--- maxleveli = ("i", L) :-> ("Ti", us "i") :-> ("j", L) :-> ("Tj", us "j") :-> U (maxLevel (lv "i" 0) (lv "j" 0)) ::> S "Ti"
--- maxlevelj :: Expr
--- maxlevelj = ("i", L) :-> ("Ti", us "i") :-> ("j", L) :-> ("Tj", us "j") :-> U (maxLevel (lv "i" 0) (lv "j" 0)) ::> S "Tj"
--- invalideLevel :: Expr
--- invalideLevel = ("T", ui 0) :-> ("t", S "T") :-> ("w", S "t") :-> S "w"
--- invalidType :: Expr
--- invalidType = ("T", ui 0) :-> ("T1", ("t", S "T") :-> S "t") :-> S "T1"
-
--- someFunc :: IO ()
--- someFunc = do
---     showLam "id" id'
---     showLam "i:+1" $ ("i", L) :-> id' :@ "i" :+ 1
---     showLam "higher" higher
---     showLam "bigger" bigger
---     showLam "r" $ ui 1
---     showLam "test"  $ nf $ ("i", L) :-> ("r", us "i") :-> ("l", S "r") :-> id' :@ S "i" :@ S "r" :@ S "l"
---     showLam "level" level
---     showLam "false" false
---     showLam "maxleveli" maxleveli
---     showLam "maxlevelj" maxlevelj
---     showLam "invalideLevel" invalideLevel
---     showLam "invalidType" invalidType
---     showLam "validErased" $ ("i", Erased L) :-> ("T", us "i") :-> ("t", S "T" ) :-> S "T" ::> S "t"
---     showLam "invalidErased" $ ("i", Erased L) :-> ("T", us "i") :-> ("t", S "T" ) :->  L ::> S "i"
---     print $ betaEq (("", S "t") :-> S "t") (("", S "t") :-> S "t")
---     print $ typeCheckVar (("t", ui 1) :-> ("", S "t") :-> S "t") (("r", ui 1) :-> ("x", S "r") :-> S "x")
-

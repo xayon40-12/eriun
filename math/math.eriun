@@ -59,8 +59,8 @@
   = CZero 'i ^ IZero 'i;
 @Succ: <i: #L> (n: Nat 'i) Nat 'i
   = CSucc 'i n.1 ^ ISucc 'i 'n.1 n.2;
--- @c2nat: <i: #L> (c: CNat '#i+1) Nat 'i
---   = c '[Nat 'i] [Succ 'i] [Zero 'i];
--- -- @c2nat_reflection: (n: Nat) <i: #L> Equal i Nat [c2nat n.1] n :> ???;
--- -- @IndNat: <i: #L> <P: <n: Nat> #U i> (s: <n: Nat> (P n) P [Succ n]) (z: P Zero) (n: Nat) P n :> ???;
+@c2nat: <i: #L> (c: CNat '#i+1) Nat 'i
+  = c '[Nat 'i] [Succ 'i] [Zero 'i];
+-- @c2nat_reflection: (n: Nat) <i: #L> Equal i Nat [c2nat n.1] n = ???;
+-- @IndNat: <i: #L> <P: <n: Nat> #U i> (s: <n: Nat> (P n) P [Succ n]) (z: P Zero) (n: Nat) P n = ???;
 Id
