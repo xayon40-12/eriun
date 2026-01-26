@@ -265,25 +265,26 @@ unTyped (Typed _t e) = unTyped e
 unTyped e = e
 
 validTyping :: Show i => Env i -> Expr i -> Expr i -> Expr i -> Bool
-validTyping env vt1 vt2 ve2 = valid (nf env vt1) (nf env vt2)
+validTyping env vt1 vt2 ve2 = valid env (nf env vt1) (nf env vt2) (nf env ve2)
     where
-        valid LevelT LevelT = True
-        valid (Level s i) (Level s' i') = s == s' && i >= i'
-        valid (Universe ls) (Universe ls') = universeValid ls ls'
-        valid (Universe ls) e = either (const False) (universeValid ls) (universe env e)
-        valid (Lam _ (er, s, t) e) (Lam _ (er', s', t') e') = er == er' && valid e (substVar s' s e') && valid t t' -- FIXME: in this case 've2' should be a Lam and its right expr should be provided to 'valid e (...)'
-        valid (App f (er,x)) (App f' (er',x')) = er == er' && valid f f' && valid x x'
-        valid (InterT (s, t1) t2) (InterT (s', t1') t2') = case nf env ve2 of
-            Inter e1 _e2 -> valid (subst s e1 t2) t2' && valid t1 t1'
-            _ -> valid t2 (substVar s' s t2') && valid t1 t1'
-        valid (Inter e1 e2) (Inter e1' e2') = valid e1 e1' && valid e2 e2'
-        valid (As e i) (As e' i') = valid e e' && i == i'
-        valid e (Typed _t' e') = valid e e'
-        valid (Typed _t e) e' = valid e e'
-        valid (Let s d t v e) e' = valid (subst s (replaceBody d t (const v)) e) e'
-        valid e (Let s d t v e') = valid e (subst s (replaceBody d t (const v)) e')
-        valid (Symbol s) (Symbol s') = s == s'
-        valid _ _ = False
+        blank = Symbol "@"
+        valid _ LevelT LevelT _ = True
+        valid _ (Level s i) (Level s' i') _ = s == s' && i >= i'
+        valid _ (Universe ls) (Universe ls') _ = universeValid ls ls'
+        valid env' (Universe ls) e _ = either (const False) (universeValid ls) (universe env' e)
+        valid env' (Lam _ (er, s, t) e) (Lam _ (er', s', t') e') (Lam _ (_er'', s'', t'') e'') = er == er' && valid (extend env' s Local SType er t) e (substVar s' s e') (substVar s'' s e'') && valid env' t t' t''
+        valid env' (Lam _ (er, s, t) e) (Lam _ (er', s', t') e') e'' = er == er' && valid (extend env' s Local SType er t) e (substVar s' s e') e'' && valid env' t t' e''
+        valid env' (App f (er,x)) (App f' (er',x')) e'' = er == er' && valid env' f f' e''  && valid env' x x' e''
+        valid env' (InterT (s, t1) t2) (InterT (_s', t1') t2') (Inter e1 _e2) = valid env' (subst s e1 t2) t2' blank && valid env' t1 t1' blank
+        valid env' (InterT (s, t1) t2) (InterT (s', t1') t2') e'' =  let env'' = extend env' s Local SType False t1 in
+            valid env'' t2 (substVar s' s t2') e'' && valid env' t1 t1' e''
+        valid env' (Inter e1 e2) (Inter e1' e2') e'' = valid env' e1 e1' e'' && valid env' e2 e2' e''
+        valid env' (As e i) (As e' i') e'' = valid env' e e' e'' && i == i'
+        valid env' (Let s d t v e) e' e'' = valid env' (subst s (replaceBody d t (const v)) e) e' e''
+        valid env' e (Let s d t v e') e'' = valid env' e (subst s (replaceBody d t (const v)) e') e''
+        valid env' e e' (Let s d t v e'') = valid env' e e' (subst s (replaceBody d t (const v)) e'')
+        valid _ (Symbol s) (Symbol s') _ = s == s'
+        valid _ _ _ _ = False
 
 universe :: Show i => Env i -> Expr i -> TC Levels
 universe _ LevelT = return $ singleton "" 0
@@ -370,9 +371,9 @@ tCheck env cer (Typed t e) = do
     return (isT, t)
 tCheck env cer (Let s d t v e) = do
     let rv = replaceBody d t (const v)
-    (st, _tt) <- tCheck env True t
-    _tv <- tCheck env cer (replaceBody d t (`Typed` v)) -- FIXME: should tCheck for (Typed t rv)
-    tCheck (extend env s Def (downgrade st) False rv) cer e
+    (isT', _tt) <- tCheck env True t
+    _tv <- tCheck env cer (Typed t rv)
+    tCheck (extend env s Def (downgrade isT') False rv) cer e
 tCheck env cer (Symbol s) = findVar env s >>= \(isd, st, er, t) -> if cer || not er
     then case isd of
         Local -> return (st, t)
@@ -385,7 +386,6 @@ lamDepth _ = 0
 
 replaceBody :: Depth -> Expr i -> (Expr i -> Expr i) -> Expr i
 replaceBody 0 body f = f body
-replaceBody 1 (Lam i (er, s, t) body) f = Lam i (er, s, t) (f body)
 replaceBody d (Lam i (er, s, t) body) f = Lam i (er, s, t) (replaceBody (d - 1) body f)
 replaceBody _ _ _ = undefined
 
