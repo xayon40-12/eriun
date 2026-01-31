@@ -1,5 +1,5 @@
 {-# LANGUAGE TupleSections #-}
-module Parser (parse, parseShow, parseExamples) where
+module Parser (parse, parseShow) where
 
 import Text.Parsec.String
 import Text.Parsec.Char
@@ -154,14 +154,3 @@ parseShow :: Sym -> String -> IO ()
 parseShow s e = case parse s e of
   Right e' -> showLam s e'
   Left err -> putStrLn $ s ++ ": " ++ show err
-
-parseExamples :: IO ()
-parseExamples = do
-  parseShow "zero" "(i: #L) -> (P: #U i) -> (s: (p: P) -> P) -> (z: P) -> z"
-  parseShow "id" "(i: '#L) -> @Z = #U i; (T: 'Z) -> (tt: (t1: T) -> (t2: T) -> T) -> (t: T) -> @r = T; r :> @ttt = tt t; ttt t"
-
-  parseShow " l" "(i: #L) -> #i+0"
-  parseShow " U" "#U +1"
-  parseShow "id" "(i: #L) -> (T: #U i) -> (x: T) -> T :> x"
-  --             |         |         |         |         |         |         |         |         |         |         |         |
-  --             0         10        20        30        40        50        60        70        80        90        100       110

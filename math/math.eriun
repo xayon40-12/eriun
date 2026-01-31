@@ -25,15 +25,15 @@
 --   p [B a] [(a: A) (b: B a) b];
 
 -- Equal
-@Equal: <i: #L> (A: #U i) (a: A) (b: A) #U i+1
+@Equal: <i: #L> <A: #U i> (a: A) (b: A) #U i+1
   = (P: (A) #U i) (P a) P b;
-@Refl: <i: #L> (A: #U i) (a: A) Equal 'i A a a
+@Refl: <i: #L> <A: #U i> (a: A) Equal 'i 'A a a
   = (P: (A) #U i) (p: P a) p;
-@rho: <i: #L> (T: #U i) (t1: T) (t2: T) (e: Equal 'i T t1 t2) (Tt: (t: T) #U i) (t: Tt t1) Tt t2
+@rho: <i: #L> (T: #U i) (t1: T) (t2: T) (e: Equal 'i 'T t1 t2) (Tt: (t: T) #U i) (t: Tt t1) Tt t2
   = e [(t: T) Tt t] t;
 
-@symm: <i: #L> (A: #U i) (a: A) (b: A) (e: Equal '#i+1 A a b) Equal 'i A b a
-  = e [(x: A) (P: (a: A) #U i) (p: P x) P a] [Refl 'i A a];
+@symm: <i: #L> (A: #U i) (a: A) (b: A) (e: Equal '#i+1 'A a b) Equal 'i 'A b a
+  = e [(x: A) (P: (a: A) #U i) (p: P x) P a] [Refl 'i 'A a];
 
 -- Nat
 @CNat: <i: #L> <P: #U i> (s: (P) P) (z: P) #U i
@@ -61,7 +61,8 @@
   = CSucc 'i n.1 ^ ISucc 'i 'n.1 n.2;
 @c2nat: <i: #L> (c: CNat '#i+1) Nat 'i
   = c '[Nat 'i] [Succ 'i] [Zero 'i];
+@zero: <i: #L> Equal '#i+1 '[CNat 'i] [c2nat 'i [CZero 'i]].1 [CZero 'i] = [Refl '#i+1 '[CNat 'i] [CZero 'i]];
 -- @c2nat_reflection: <i: #L> (n: Nat 'i) Equal 'i [Nat 'i] [c2nat 'i n.1] n
---   = n.2 [(x: cNat 'i) Equal 'i [Nat 'i] [c2nat 'i x].1 x] [] [Refl 'i [Nath 'i] [CZero 'i]];
+--   = n.2 [(x: cNat 'i) Equal 'i '[CNat 'i] [c2nat 'i x].1 x] [] [Refl '#i+1 '[CNat 'i] [CZero 'i]];
 -- @IndNat: <i: #L> <P: <n: Nat> #U i> (s: <n: Nat> (P n) P [Succ n]) (z: P Zero) (n: Nat) P n = ???;
 Id

@@ -54,16 +54,20 @@ show' LevelT _ = "#L"
 show' (Level s i) _ = s ++ "+" ++ show i
 show' (Universe l) _ = "#U " ++ showL l
 show' (Lam _ (er, s, t) e) d
+    | isSymbol "" t = handleNull s ++ " :-> " ++ show' e d -- only supposed to be produced by erasing so there is no point in showing the erasure as it was removed
     | null s = "(" ++ show' t d ++ erasedEnd er ++ " " ++ show' e d
-    | isSymbol "" t = s ++ " :-> " ++ show' e d -- only supposed to be produced by erasing so there is no point in showing the erasure as it was removed
     | otherwise = erasedStart er ++ s ++ ": " ++ show' t d ++ erasedEnd er ++ " " ++ show' e d
 show' (App f@(Lam _ (_, _, _) _) x) d = "[" ++ show' f d ++ "] " ++ showApp x d
 show' (App f x) d = show' f d ++ " " ++ showApp x d
 show' (InterT (s, t1) t2) d = "(" ++ s ++ ": " ++ show' t1 d ++ " /\\ " ++ show' t2 d ++ ")"
 show' (Inter e1 e2) d = show' e1 d ++ " ^ " ++ show' e2 d
-show' (As e i) d = show' e d ++ "." ++ show i
+show' (As e i) d = showAs e i d
 show' (Let s _d t v e) d = "@" ++ s ++ ": " ++ show' t d ++ " = " ++ show' v (d+1) ++ ";" ++ showNewLine d ++ show' e d
 show' (Symbol s) _ = s
+
+handleNull :: String -> String
+handleNull "" = "_"
+handleNull s = s
 
 erasedStart, erasedEnd :: Bool -> String
 erasedStart False = "("
@@ -79,9 +83,16 @@ showErrasure :: Erased -> String
 showErrasure True = "'"
 showErrasure False = ""
 
+showAs :: Expr i -> AsT -> Int -> String
+showAs e@(Lam {}) i d = "[" ++ show' e d ++ "]." ++ show i
+showAs e@(Inter {}) i d = "[" ++ show' e d ++ "]." ++ show i
+showAs e@(App {}) i d = "[" ++ show' e d ++ "]." ++ show i
+showAs e i d = show' e d ++ "." ++ show i
+
 showApp :: (Erased, Expr i) -> Int -> String
 showApp (er, l@(Lam {})) d = showErrasure er ++ "[" ++ show' l d ++ "]"
 showApp (er, App f x) d = showErrasure er ++ "[" ++ show' f d ++ " " ++ showApp x d ++ "]"
+showApp (er, i@(Inter {})) d = showErrasure er ++ "[" ++ show' i d ++ "]"
 showApp (er,e) d = showErrasure er ++ show' e d
 
 showL :: Levels -> String
@@ -117,7 +128,11 @@ nf env expr = spine expr []
         spine (App f x) xs = spine f (x:xs)
         spine (InterT (s, t1) t2) [] = InterT (s, nf env t1) (nf env t2)
         spine (Inter e1 e2) [] = Inter (nf env e1) (nf env e2)
-        spine (As e i) [] = As (nf env e) i
+        spine (As e i) [] = case nf env e of
+            (Inter e1 e2) -> case i of
+                One -> e1
+                Two -> e2
+            e' -> As e' i
         spine (Let s d t v e) xs = spine (subst s (replaceBody d t (const v)) e) xs
         spine (Symbol s) xs = case findVar env s of
             Right (Def, _, _, v) -> spine v xs
@@ -391,6 +406,7 @@ showLam s lam = do
          putStrLn $ s ++ " :: " ++ show t ++ " | " ++ case universe initialEnv t of
             Right ls -> show (Universe ls :: Expr ())
             Left err -> show err
+         putStrLn $ s ++ " nf= " ++ show (nf initialEnv lam)
          putStrLn $ s ++ " e.nf= " ++ show (erased . nf initialEnv $ lam)
         Left err -> putStrLn $ s ++ ": " ++ err
 

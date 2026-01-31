@@ -1,7 +1,7 @@
 module Main (main) where
 
 import System.Environment
-import Parser (parseExamples, parseShow)
+import Parser (parseShow)
 
 main :: IO ()
 main = do
@@ -10,4 +10,4 @@ main = do
     (x:_) -> do
       s <- readFile x
       parseShow x s
-    _ -> parseExamples
+    _ -> print "Please provide a valid filename."
